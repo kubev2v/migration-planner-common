@@ -1,0 +1,6 @@
+package: inventory
+generate:
+  embedded-spec: true
+output: spec.gen.go
+output-options:
+  skip-prune: true

@@ -1,0 +1,401 @@
+openapi: 3.0.1
+info:
+  title: Migration Planner Inventory API
+  version: v1
+  description: Shared inventory data models for migration planning
+  license:
+    name: Apache 2.0
+    url: https://www.apache.org/licenses/LICENSE-2.0.html
+
+paths: {}
+
+components:
+  schemas:
+    Inventory:
+      type: object
+      required:
+        - vcenter_id
+        - clusters
+      properties:
+        vcenter_id:
+          type: string
+          description: ID of the vCenter
+        vcenter_version:
+          type: string
+          description: Version of the vCenter api. For example "8.0.3.0"
+        clusters:
+          type: object
+          additionalProperties:
+            $ref: "#/components/schemas/InventoryData"
+          description: Map of cluster names to their inventory data
+        vcenter:
+          $ref: "#/components/schemas/InventoryData"
+          description: vCenter-level inventory data
+
+    InventoryData:
+      type: object
+      required:
+        - vms
+        - infra
+      properties:
+        vcenter:
+          deprecated: true
+          nullable: true
+          description: "Deprecated: Legacy v1 inventory format field. Use Inventory.vcenter in v2 format instead."
+          $ref: "#/components/schemas/VCenter"
+        vms:
+          $ref: "#/components/schemas/VMs"
+        infra:
+          $ref: "#/components/schemas/Infra"
+        clusterFeatures:
+          $ref: "#/components/schemas/ClusterFeatures"
+        clusterUtilization:
+          $ref: "#/components/schemas/ClusterUtilization"
+
+    VCenter:
+      type: object
+      required:
+        - id
+      properties:
+        id:
+          type: string
+
+    VMs:
+      type: object
+      required:
+        - total
+        - totalMigratable
+        - cpuCores
+        - ramGB
+        - diskCount
+        - diskGB
+        - powerStates
+        - migrationWarnings
+        - notMigratableReasons
+      properties:
+        total:
+          type: integer
+        totalMigratable:
+          type: integer
+        totalMigratableWithWarnings:
+          type: integer
+        totalWithSharedDisks:
+          type: integer
+        powerStates:
+          type: object
+          additionalProperties:
+            type: integer
+        osInfo:
+          type: object
+          additionalProperties:
+            $ref: "#/components/schemas/OsInfo"
+        cpuCores:
+          $ref: "#/components/schemas/VMResourceBreakdown"
+        ramGB:
+          $ref: "#/components/schemas/VMResourceBreakdown"
+        diskCount:
+          $ref: "#/components/schemas/VMResourceBreakdown"
+        diskGB:
+          $ref: "#/components/schemas/VMResourceBreakdown"
+        nicCount:
+          $ref: "#/components/schemas/VMResourceBreakdown"
+        distributionByCpuTier:
+          type: object
+          additionalProperties:
+            type: integer
+          description: Distribution of VMs across CPU tier buckets (e.g., "0-4", "5-8", "9-16", "17-32", "32+")
+        distributionByMemoryTier:
+          type: object
+          additionalProperties:
+            type: integer
+          description: Distribution of VMs across Memory tier buckets (e.g., "0-4", "5-16", "17-32", "33-64", "65-128", "129-256", "256+")
+        distributionByNicCount:
+          type: object
+          additionalProperties:
+            type: integer
+          description: Distribution of VMs by NIC count (e.g., "0", "1", "2", "3", "4+")
+        distributionByComplexity:
+          type: object
+          additionalProperties:
+            type: integer
+          description: Distribution of VMs by migration complexity level (0=Unsupported, 1=Easy, 2=Medium, 3=Hard, 4=WhiteGlove)
+          deprecated: true
+        complexityDistribution:
+          type: object
+          additionalProperties:
+            $ref: "#/components/schemas/DiskSizeTierSummary"
+          description: Distribution of VMs by migration complexity level, enriched with total disk size per level. Supersedes distributionByComplexity.
+        diskSizeTier:
+          type: object
+          additionalProperties:
+            $ref: "#/components/schemas/DiskSizeTierSummary"
+        diskComplexityTier:
+          type: object
+          additionalProperties:
+            $ref: "#/components/schemas/DiskSizeTierSummary"
+          description: Distribution of VMs across disk-complexity tiers used by the estimation engine (0-10TiB, 10-20TiB, 20-50TiB, 50+TiB).
+        diskTypes:
+          type: object
+          additionalProperties:
+            $ref: "#/components/schemas/DiskTypeSummary"
+        migrationWarnings:
+          type: array
+          items:
+            $ref: "#/components/schemas/MigrationIssue"
+        notMigratableReasons:
+          type: array
+          items:
+            $ref: "#/components/schemas/MigrationIssue"
+
+    Infra:
+      type: object
+      required:
+        - totalHosts
+        - hostPowerStates
+        - datastores
+        - networks
+      properties:
+        totalHosts:
+          type: integer
+        totalDatacenters:
+          type: integer
+        totalClusters:
+          type: integer
+          deprecated: true
+        clustersPerDatacenter:
+          type: array
+          items:
+            type: integer
+        hosts:
+          type: array
+          items:
+            $ref: "#/components/schemas/Host"
+        hostPowerStates:
+          type: object
+          additionalProperties:
+            type: integer
+        cpuOverCommitment:
+          type: number
+          format: double
+          description: CPU Overcommitment Ratio. Calculated as total Allocated vCPUs / Total Physical Cores
+        memoryOverCommitment:
+          type: number
+          format: double
+          description: RAM memory Overcommitment Ratio. Calculated as total Allocated memory / Total memory available
+        datastores:
+          type: array
+          items:
+            $ref: "#/components/schemas/Datastore"
+        networks:
+          type: array
+          items:
+            $ref: "#/components/schemas/Network"
+
+    ClusterFeatures:
+      type: object
+      properties:
+        drsEnabled:
+          type: boolean
+          description: Whether DRS (Distributed Resource Scheduler) is enabled for this cluster
+        drsMode:
+          type: string
+          enum:
+            - "Fully Automated"
+            - "Partially Automated"
+            - "Manual"
+            - "None"
+          description: DRS automation mode for the cluster
+        storageDrsEnabled:
+          type: boolean
+          description: Whether Storage DRS is enabled for this cluster
+
+    ClusterUtilization:
+      type: object
+      required:
+        - cpu_avg
+        - cpu_p95
+        - cpu_max
+        - mem_avg
+        - mem_p95
+        - mem_max
+        - confidence
+      properties:
+        cpu_avg:
+          type: number
+          format: double
+          description: Average CPU utilization percentage (0-100)
+        cpu_p95:
+          type: number
+          format: double
+          description: 95th percentile CPU utilization percentage (0-100)
+        cpu_max:
+          type: number
+          format: double
+          description: Maximum CPU utilization percentage (0-100)
+        mem_avg:
+          type: number
+          format: double
+          description: Average memory utilization percentage (0-100)
+        mem_p95:
+          type: number
+          format: double
+          description: 95th percentile memory utilization percentage (0-100)
+        mem_max:
+          type: number
+          format: double
+          description: Maximum memory utilization percentage (0-100)
+        confidence:
+          type: number
+          format: double
+          description: Data coverage confidence percentage (0-100), calculated as vCPU-weighted coverage
+
+    OsInfo:
+      type: object
+      required:
+        - count
+        - supported
+      properties:
+        count:
+          type: integer
+        supported:
+          type: boolean
+        upgradeRecommendation:
+          type: string
+          description: Recommended OS upgrade for MTV unsupported OS that can be upgraded to a supported OS
+
+    DiskSizeTierSummary:
+      type: object
+      required:
+        - vmCount
+        - totalSizeTB
+      properties:
+        vmCount:
+          type: integer
+          description: Number of VMs in this tier
+        totalSizeTB:
+          type: number
+          format: double
+          description: Total disk size in TB for this tier
+
+    DiskTypeSummary:
+      type: object
+      required:
+        - vmCount
+        - totalSizeTB
+      properties:
+        vmCount:
+          type: integer
+          description: Number of VMs that have at least one disk of this type
+        totalSizeTB:
+          type: number
+          format: double
+          description: Total disk size in TB for this disk type
+
+    MigrationIssue:
+      type: object
+      required:
+        - label
+        - assessment
+        - count
+      properties:
+        id:
+          type: string
+        label:
+          type: string
+        assessment:
+          type: string
+        count:
+          type: integer
+
+    VMResourceBreakdown:
+      type: object
+      required:
+        - total
+        - totalForMigratable
+        - totalForMigratableWithWarnings
+        - totalForNotMigratable
+      properties:
+        total:
+          type: integer
+        totalForMigratable:
+          type: integer
+        totalForMigratableWithWarnings:
+          type: integer
+        totalForNotMigratable:
+          type: integer
+
+    Host:
+      type: object
+      required:
+        - vendor
+        - model
+      properties:
+        id:
+          type: string
+          description: Unique identifier for this host
+        vendor:
+          type: string
+        model:
+          type: string
+        cpuCores:
+          type: integer
+          description: Number of CPU cores
+        cpuSockets:
+          type: integer
+          description: Number of CPU sockets
+        memoryMB:
+          type: integer
+          format: int64
+          description: Host memory in MB
+
+    Datastore:
+      type: object
+      required:
+        - diskId
+        - type
+        - totalCapacityGB
+        - freeCapacityGB
+        - hardwareAcceleratedMove
+        - vendor
+        - model
+        - protocolType
+      properties:
+        diskId:
+          type: string
+        type:
+          type: string
+        totalCapacityGB:
+          type: integer
+        freeCapacityGB:
+          type: integer
+        hardwareAcceleratedMove:
+          type: boolean
+        hostId:
+          type: string
+          description: Identifier of the host where this datastore is attached
+        vendor:
+          type: string
+        model:
+          type: string
+        protocolType:
+          type: string
+
+    Network:
+      type: object
+      required:
+        - name
+        - type
+      properties:
+        name:
+          type: string
+        type:
+          type: string
+          enum:
+            - "Standard"
+            - "Distributed"
+        dvswitch:
+          type: string
+        vlanId:
+          type: string
+        vmsCount:
+          type: integer
