@@ -31,6 +31,13 @@ type Estimation struct {
 	Reason      string
 }
 
+// Result contains the calculator breakdown and its aggregate duration range.
+type Result struct {
+	MinTotalDuration time.Duration
+	MaxTotalDuration time.Duration
+	Breakdown        map[string]Estimation
+}
+
 // NewPointEstimation constructs an Estimation for a single-value calculator result.
 func NewPointEstimation(d time.Duration, reason string) Estimation {
 	return Estimation{Duration: &d, Reason: reason}

@@ -49,3 +49,18 @@ func (e *Engine) Run(inputs []Param) map[string]Estimation {
 	}
 	return results
 }
+
+// Estimate returns the calculator breakdown and sums its duration range.
+func (e *Engine) Estimate(inputs []Param) Result {
+	result := Result{Breakdown: e.Run(inputs)}
+	for _, estimate := range result.Breakdown {
+		if estimate.IsRanged() {
+			result.MinTotalDuration += *estimate.MinDuration
+			result.MaxTotalDuration += *estimate.MaxDuration
+		} else {
+			result.MinTotalDuration += *estimate.Duration
+			result.MaxTotalDuration += *estimate.Duration
+		}
+	}
+	return result
+}
